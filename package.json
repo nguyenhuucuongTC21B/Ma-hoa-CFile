@@ -3,30 +3,21 @@
   "version": "1.0.2",
   "main": "index.js",
   "scripts": {
-    "start": "node server/app.js",
-    "build": "react-scripts build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+   "start": "node server/app.js",
+    "build": "cd client && npm install && npm run build",
+    "install-all": "npm install && cd client && npm install",
+    "client": "cd client && npm start"
   },
-  "keywords": [],
-  "author": "Doremon.dn01@gmail.com",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "@google-cloud/logging-winston": "^6.0.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
-    "crypto-js": "^4.2.0",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
-    "glob": "^11.0.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.14.1",
     "pg-hstore": "^2.3.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-scripts": "^5.0.1",
-    "rimraf": "^6.0.1",
     "sequelize": "^6.37.7",
     "winston": "^3.17.0"
   }

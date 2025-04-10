@@ -1,7 +1,7 @@
 services:
   - type: web
     name: encryption-app
-    runtime: node
+    env: node
     buildCommand: npm install && npm run build
     startCommand: node server/app.js
     envVars:
@@ -10,7 +10,7 @@ services:
           name: encryption-db
           property: connectionString
       - key: JWT_SECRET
-        generateValue: true
+        value: your-secret-key-here
       - key: NODE_ENV
         value: production
 

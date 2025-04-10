@@ -1,6 +1,7 @@
 https://chat.qwen.ai/ hoặc deepseek.com
 
-hướng dẫn chi tiết để xây dựng một dự án Mã hóa dữ liệu với Render.com , Các yêu cầu của dự án như sau: các file dữ liệu mã hóa được hỗ trợ là các định dạng: txt, csv, doc, docx, xls, xlsx, ppt, pptx, pdf, odt, ods, bmp, jpg, jpeg, png, gif . Sử dụng một file HTML để thực hiện mã hóa dữ liệu bằng kỹ thuật mã hóa không đối xứng  (asymmetric encryption) và tương tác với server để xử lý mã hóa hoặc giải mã.     Triển khai KMS chuyên nghiệp thay vì lưu khóa trong biến môi trường, Thêm xác thực người dùng, triển khai HTTPS, Giám sát và logging đầy đủ. Tuy nhiên, cần lưu ý rằng việc triển khai này yêu cầu sự kết hợp giữa frontend (HTML + JavaScript)  và backend (server)  để đảm bảo an toàn và hiệu quả.
+Phần 1: hướng dẫn chi tiết để xây dựng một dự án Mã hóa dữ liệu với Render.com , Các yêu cầu của dự án như sau: các file dữ liệu mã hóa được hỗ trợ là các định dạng: txt, csv, doc, docx, xls, xlsx, ppt, pptx, pdf, odt, ods, bmp, jpg, jpeg, png, gif . Sử dụng một file HTML để thực hiện mã hóa dữ liệu bằng kỹ thuật mã hóa không đối xứng  (asymmetric encryption) và tương tác với server để xử lý mã hóa hoặc giải mã.     Triển khai KMS chuyên nghiệp thay vì lưu khóa trong biến môi trường, Thêm xác thực người dùng, triển khai HTTPS, Giám sát và logging đầy đủ. Tuy nhiên, cần lưu ý rằng việc triển khai này yêu cầu sự kết hợp giữa frontend (HTML + JavaScript)  và backend (server)  để đảm bảo an toàn và hiệu quả. (đã hoàn thiện)
+Phần 2: dựa trên mã nguồn trên, nâng tầm cho ứng dụng với yêu cầu: quản lý được người dùng, ví dụ cấp phép hoặc chỉ cho 29 người trong cơ quan đăng ký sử dụng ứng dụng mã hóa tài liệu, quản lý được khóa bí mật người dùng, admin có thể xóa tài khoản người dùng
 
 Mã mẫu cho server (Node.js):
 const crypto = require('crypto');
@@ -63,7 +64,7 @@ console.log('Private Key:', privateKey.export({ type: 'pkcs8', format: 'pem' }))
 
 Bước 2: Tạo file HTML và JavaScript  
 
-File HTML sẽ cung cấp giao diện để người dùng tải lên ảnh và mã hóa nó bằng khóa công khai. Sau đó, dữ liệu được gửi đến server. 
+File HTML sẽ cung cấp giao diện để người dùng tải lên ảnh, hoặc các file tài liệu như txt, csv, doc, docx, xls, xlsx, ppt, pptx, pdf, odt, ods, bmp, jpg, jpeg, png, gif và mã hóa nó bằng khóa công khai. Sau đó, dữ liệu được gửi đến server. 
 
 Ví dụ file HTML
 <!DOCTYPE html>
@@ -201,5 +202,297 @@ b. Bảo mật
 
 c. Render.com  
 
-    Bạn có thể triển khai backend trên Render.com bằng cách push mã nguồn lên GitHub và tạo một Web Service.
+    Có thể triển khai backend trên Render.com bằng cách push mã nguồn lên GitHub và tạo một Web Service.
+General
+Name:                   Ma-hoa-NHCFile
+Region:                 Singapore (Southeast Asia)
+Instance Type:       Free 0.1 CPU 512mb
+Repository:           https://github.com/nguyenhuucuongTC21B/Ma-hoa-NHCFile
+Build Command:   npm install && cd client && npm install && npm run build
+Start Command:    npm install -g serve && serve -s client/build -l $PORT
+Runtime:               Node
+
+
+PHẦN II: quản lý được người dùng, ví dụ cấp phép hoặc chỉ cho 29 người trong cơ quan đăng ký sử dụng ứng dụng mã hóa tài liệu, quản lý được khóa bí mật người dùng, admin có thể xóa tài khoản người dùng
+
+kiến trúc hệ thống
+graph TD
+    A[Frontend React] -->|API| B[Backend Node.js]
+    B --> C[(Database PostgreSQL)]
+    B --> D[Key Management Service]
+
+Yêu cầu:
+    Chỉ admin mới có quyền tạo tài khoản
+    Mỗi nhân viên có mã NV duy nhất
+
+đăng ký tài khoản
+// API endpoint
+POST /api/auth/register
+{
+  "employeeId": "NV001",
+  "fullName": "Nguyễn Văn A",
+  "department": "Kế toán",
+  "password": "hashed_password"
+}
+
+Tạo khóa RSA cho từng user:
+const { generateKeyPair } = require('crypto');
+
+function generateUserKeys() {
+  return new Promise((resolve, reject) => {
+    generateKeyPair('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+    }, (err, publicKey, privateKey) => {
+      if (err) reject(err);
+      resolve({ publicKey, privateKey });
+    });
+  });
+}
+
+Lưu trữ khóa an toàn
+    Database schema:
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  employee_id VARCHAR(10) UNIQUE,
+  public_key TEXT NOT NULL,
+  encrypted_private_key TEXT NOT NULL,
+  key_version INT DEFAULT 1
+);
+
+Triển khai tuần tự (Ưu tiên quan trọng trước, hướng dẫn thật chi tiết)
+🔐 a. Backend API (3-5 ngày)
+
+File cần thêm:
+server/
+├── api/
+│   ├── auth.js       # Xác thực người dùng
+│   ├── keys.js       # Quản lý khóa
+│   └── admin.js      # API quản trị
+└── models/
+    ├── User.js       # Schema người dùng
+    └── KeyStore.js   # Lưu trữ khóa
+
+code:
+// server/api/auth.js
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+// Đăng ký user (chỉ admin)
+router.post('/register', adminOnly, async (req, res) => {
+  const { employeeId, publicKey } = req.body;
+  
+  // Tạo user mới với key
+  const user = await User.create({
+    employeeId,
+    publicKey,
+    privateKey: encryptKey(privateKey) // Mã hóa private key trước khi lưu
+  });
+
+  res.status(201).json({ userId: user.id });
+});
+
+// Middleware kiểm tra admin
+function adminOnly(req, res, next) {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  next();
+}
+
+Database Schema (1 ngày) Tạo cơ sở dữ liệu PostgreSQL
+Trên dashboard của Render, nhấp vào nút New  ở góc trên bên trái.
+Chọn PostgreSQL  từ danh sách các dịch vụ
+tên cơ sở dữ liệu
+Name
+A unique name for your Postgres instance: mahoa_NHCFile
+DatabaseOptional
+The Postgres dbname:                               mahoa_nhcfile     
+UserOptional:                                            mahoa_nhcfile_user
+Password:                                                 FrJiIbVfPTzcVZokksZDpH2Vd8K2FnmL
+Internal Database URL:                              postgresql://mahoa_nhcfile_user:FrJiIbVfPTzcVZokksZDpH2Vd8K2FnmL@dpg-cvrjnker433s73assv80-a/mahoa_nhcfile
+PSQL Command:                                     PGPASSWORD=FrJiIbVfPTzcVZokksZDpH2Vd8K2FnmL psql -h dpg-cvrjnker433s73assv80-a.singapore-postgres.render.com -U mahoa_nhcfile_user mahoa_nhcfile
+Region:                                                     Singapore (Southeast Asia)  
+Hostname:                                                dpg-cvrjnker433s73assv80-a
+Port:                                                         5432                    
+PostgreSQL Version:                                16
+Datadog API KeyOptional:
+The API key to use for sending metrics to Datadog. Setting this will enable Datadog monitoring: 
+
+Migrations SQL (PostgreSQL):
+-- Tạo bảng users
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  employee_id VARCHAR(10) UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  public_key TEXT NOT NULL,
+  encrypted_private_key TEXT NOT NULL,
+  role VARCHAR(10) DEFAULT 'user'
+);
+
+-- Bảng lịch sử khóa
+CREATE TABLE key_rotation_logs (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id),
+  old_key_version INT,
+  new_key_version INT,
+  rotated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+c. Frontend Admin Panel (3-4 ngày)
+Cấu trúc component React:
+// client/src/admin/UserManager.js
+import { Table, Button, message } from 'antd';
+
+function UserManager() {
+  const [users, setUsers] = useState([]);
+
+  const fetchUsers = async () => {
+    const res = await fetch('/api/admin/users', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    setUsers(await res.json());
+  };
+
+  const rotateKey = async (userId) => {
+    await fetch(`/api/admin/keys/${userId}/rotate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    message.success('Đã xoay khóa thành công');
+  };
+
+  return (
+    <Table
+      columns={[
+        { title: 'Mã NV', dataIndex: 'employee_id' },
+        { title: 'Phiên bản khóa', dataIndex: 'key_version' },
+        {
+          title: 'Thao tác',
+          render: (_, record) => (
+            <Button onClick={() => rotateKey(record.id)}>Xoay khóa</Button>
+          )
+        }
+      ]}
+      dataSource={users}
+    />
+  );
+}
+
+d. Key Rotation System (2 ngày)
+Cơ chế xoay khóa tự động:
+// server/services/keyRotation.js
+const { generateKeyPair } = require('crypto');
+const { encryptKey } = require('./cryptoUtils');
+
+async function rotateUserKey(userId) {
+  // 1. Tạo cặp khóa mới
+  const { publicKey, privateKey } = await generateKeyPair('rsa', {
+    modulusLength: 2048
+  });
+
+  // 2. Cập nhật DB
+  await User.update({
+    publicKey,
+    encrypted_private_key: encryptKey(privateKey),
+    key_version: sequelize.literal('key_version + 1')
+  }, { where: { id: userId } });
+
+  // 3. Ghi log
+  await KeyRotationLog.create({
+    userId,
+    oldKeyVersion: currentVersion,
+    newKeyVersion: currentVersion + 1
+  });
+}
+
+Tích hợp với hệ thống hiện có
+a. Sửa file server chính:
+// server/index.js
+const express = require('express');
+const { sequelize } = require('./models');
+
+// Kết nối DB và khởi tạo
+async function init() {
+  await sequelize.sync(); // Áp dụng schema
+  const app = express();
+  
+  app.use('/api/auth', require('./api/auth'));
+  app.use('/api/admin', require('./api/admin'));
+  
+  app.listen(process.env.PORT, () => {
+    console.log(`Server running on port ${process.env.PORT}`);
+  });
+}
+
+init();
+
+b. Environment Variables trên Render:
+DATABASE_URL=postgres://user:pass@host:5432/db
+JWT_SECRET=your_jwt_secret_here
+ADMIN_INIT_PASSWORD=temp_password_123
+
+Không lưu private key dạng plaintext
+// Mã hóa trước khi lưu
+function encryptKey(key) {
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+  return cipher.update(key, 'utf8', 'hex') + cipher.final('hex');
+}
+
+Đẩy code lên github
+git config -- user.name "Nguyen Huu Cuong"
+git config -- user.email "nguyenhuucuong10101@gmail.com"
+git config --list  # Kiểm tra cấu hình
+git init  # Nếu chưa khởi tạo repository
+git remote add origin https://github.com/nguyenhuucuongTC21B/Ma-hoa-CFile.git
+git branch  # Kiểm tra branch hiện tại
+git status  # Xem trạng thái các file thay đổi
+git add .   # Thêm tất cả thay đổi vào staging area
+git commit -m "Lần đầu tiên commit code"  # Tạo commit
+git pull origin master  # Cập nhật thay đổi từ remote trước khi push
+git push origin master  # Đẩy code lên remote
+git log  # Xem lịch sử commit
+
+
+1. Chuẩn bị trên GitHub
+    Đăng nhập vào GitHub
+    Tạo repository mới:
+        Nhấn + → New repository
+        Đặt tên repo (ví dụ: Ma-hoa-CFile)
+        Chọn Public/Private
+        KHÔNG tích vào "Initialize this repository with a README" (nếu là dự án mới đã có code local)
+        Nhấn Create repository
+2. Thiết lập dự án trên máy local
+Bước 1: Mở terminal/cmd tại thư mục dự án
+cd /duong-dan/thu-muc-du-an
+Bước 2: Khởi tạo Git (nếu chưa có)
+git init
+Bước 3: Cấu hình Git (chỉ cần làm 1 lần)
+git config --global user.name "Nguyen Huu Cuong"
+git config --global user.email "nguyenhuucuong10101@gmail.com"
+Bước 4: Kiểm tra trạng thái file
+git status
+Bước 5: Thêm tất cả file vào staging area
+git add .
+# Hoặc thêm từng file: git add ten_file
+Bước 6: Tạo commit
+git commit -m "Lần đầu tiên commit code"
+3. Kết nối với GitHub và push code
+Bước 1: Thêm remote repository
+git remote add origin https://github.com/nguyenhuucuongTC21B/Ma-hoa-CFile.git
+(Lấy URL từ trang GitHub repo, có dạng https://github.com/[username]/[repo-name].git)
+Bước 2: Kiểm tra remote
+git remote -v
+Bước 3: Push code lên GitHub
+    Nếu repo GitHub dùng branch main (mặc định mới):
+    git branch -M main    # Đổi tên branch local sang "main" nếu cần
+    git push -u origin main
+    Nếu repo GitHub dùng branch master (cũ):
+    git push -u origin master
+
+
+
+
+
+
+
      
